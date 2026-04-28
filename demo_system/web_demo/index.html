@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>胎心信号异常检测系统 - 演示</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        /* 标题 */
+        .header {
+            text-align: center;
+            padding: 30px 20px;
+            color: white;
+        }
+        
+        .header h1 {
+            font-size: 2.2em;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #00d4ff, #7c3aed);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .header p {
+            color: #a0aec0;
+            font-size: 1.1em;
+        }
+        
+        /* 状态卡片 */
+        .status-bar {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .status-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 15px 25px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #e53e3e;
+        }
+        
+        .status-dot.active {
+            background: #48bb78;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        /* 主内容区 */
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        @media (max-width: 900px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .panel {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+        
+        .panel-title {
+            font-size: 1.3em;
+            color: #2d3748;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .panel-title .icon {
+            font-size: 1.2em;
+        }
+        
+        /* 信号图表 */
+        .signal-chart {
+            height: 200px;
+            background: #f8fafc;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .signal-canvas {
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* 控制按钮 */
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+        
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+            color: white;
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            color: white;
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        /* 检测结果 */
+        .result-display {
+            text-align: center;
+            padding: 30px;
+            background: #f8fafc;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .risk-level {
+            font-size: 3em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .risk-normal { color: #38a169; }
+        .risk-suspicious { color: #d69e2e; }
+        .risk-high { color: #e53e3e; }
+        
+        .probability {
+            font-size: 1.5em;
+            color: #4a5568;
+        }
+        
+        .probability span {
+            font-weight: bold;
+            color: #2d3748;
+        }
+        
+        /* 特征显示 */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+        
+        .feature-item {
+            background: #f7fafc;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .feature-name {
+            color: #718096;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+        
+        .feature-value {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #2d3748;
+        }
+        
+        /* 日志显示 */
+        .log-display {
+            background: #1a202c;
+            color: #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.85em;
+            line-height: 1.6;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+        }
+        
+        .log-time {
+            color: #718096;
+        }
+        
+        .log-info { color: #68d391; }
+        .log-warn { color: #f6e05e; }
+        .log-error { color: #fc8181; }
+        
+        /* 流程图 */
+        .flow-diagram {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            margin-top: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+        
+        .flow-title {
+            text-align: center;
+            font-size: 1.3em;
+            color: #2d3748;
+            margin-bottom: 30px;
+        }
+        
+        .flow-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .flow-step {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            text-align: center;
+            min-width: 150px;
+        }
+        
+        .flow-step.device {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+        
+        .flow-step.j2ee {
+            background: linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%);
+        }
+        
+        .flow-step.python {
+            background: linear-gradient(135deg, #ee0979 0%, #ff6a00 100%);
+        }
+        
+        .flow-step.result {
+            background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+        }
+        
+        .flow-arrow {
+            font-size: 2em;
+            color: #a0aec0;
+        }
+        
+        .flow-step-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .flow-step-desc {
+            font-size: 0.85em;
+            opacity: 0.9;
+        }
+        
+        /* 统计信息 */
+        .stats-bar {
+            display: flex;
+            justify-content: space-around;
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 20px;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            color: #718096;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 标题 -->
+        <div class="header">
+            <h1>胎心信号异常检测系统</h1>
+            <p>基于轻量化 CNN-GRU 模型的 J2EE-Python 跨技术栈演示</p>
+        </div>
+        
+        <!-- 状态栏 -->
+        <div class="status-bar">
+            <div class="status-card">
+                <div class="status-dot" id="j2eeStatus"></div>
+                <span>J2EE 服务</span>
+            </div>
+            <div class="status-card">
+                <div class="status-dot" id="pythonStatus"></div>
+                <span>Python 算法服务</span>
+            </div>
+            <div class="status-card">
+                <span>检测数量: <strong id="detectCount">0</strong></span>
+            </div>
+        </div>
+        
+        <!-- 主内容区 -->
+        <div class="main-content">
+            <!-- 左侧：控制面板 -->
+            <div class="panel">
+                <div class="panel-title">
+                    <span class="icon">🎛️</span>
+                    <span>信号控制</span>
+                </div>
+                
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="startSimulation()">▶ 开始模拟</button>
+                    <button class="btn btn-secondary" onclick="stopSimulation()">⏹ 停止</button>
+                    <button class="btn btn-success" onclick="sendSingleDetection()">📡 单次检测</button>
+                </div>
+                
+                <div class="controls">
+                    <button class="btn btn-secondary" onclick="setSignalType('normal')">正常信号</button>
+                    <button class="btn btn-secondary" onclick="setSignalType('suspicious')">可疑信号</button>
+                    <button class="btn btn-secondary" onclick="setSignalType('abnormal')">异常信号</button>
+                </div>
+                
+                <div class="controls">
+                    <label style="color: #4a5568; margin-right: 10px;">间隔:</label>
+                    <input type="range" id="intervalSlider" min="0.5" max="3" step="0.5" value="1" 
+                           onchange="updateInterval(this.value)" style="width: 100px;">
+                    <span id="intervalDisplay">1</span>秒
+                </div>
+                
+                <div class="signal-chart">
+                    <canvas id="signalCanvas" class="signal-canvas"></canvas>
+                </div>
+                
+                <div class="features-grid">
+                    <div class="feature-item">
+                        <div class="feature-name">基线胎心率</div>
+                        <div class="feature-value" id="baselineDisplay">-</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-name">短期变异</div>
+                        <div class="feature-value" id="shortVarDisplay">-</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-name">加速比例</div>
+                        <div class="feature-value" id="accelDisplay">-</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-name">减速比例</div>
+                        <div class="feature-value" id="decelDisplay">-</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 右侧：结果展示 -->
+            <div class="panel">
+                <div class="panel-title">
+                    <span class="icon">📊</span>
+                    <span>检测结果</span>
+                </div>
+                
+                <div class="result-display">
+                    <div class="risk-level" id="riskLevel">等待检测</div>
+                    <div class="probability">
+                        异常概率: <span id="probabilityDisplay">-</span>
+                    </div>
+                    <div style="margin-top: 15px; color: #718096;">
+                        推理耗时: <span id="inferenceTimeDisplay">-</span> ms
+                    </div>
+                </div>
+                
+                <div class="panel-title">
+                    <span class="icon">📋</span>
+                    <span>检测日志</span>
+                </div>
+                
+                <div class="log-display" id="logDisplay">
+                    <div class="log-entry">
+                        <span class="log-time">[--:--:--]</span>
+                        <span class="log-info">系统初始化完成...</span>
+                    </div>
+                </div>
+                
+                <div class="stats-bar">
+                    <div class="stat-item">
+                        <div class="stat-value" id="statTotal">0</div>
+                        <div class="stat-label">总检测</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="statNormal">0</div>
+                        <div class="stat-label">正常</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="statSuspicious">0</div>
+                        <div class="stat-label">可疑</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="statHigh">0</div>
+                        <div class="stat-label">异常</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 系统流程图 -->
+        <div class="flow-diagram">
+            <div class="flow-title">系统技术架构</div>
+            <div class="flow-container">
+                <div class="flow-step device">
+                    <div class="flow-step-title">虚拟设备</div>
+                    <div class="flow-step-desc">生成胎心信号</div>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-step j2ee">
+                    <div class="flow-step-title">J2EE 接口层</div>
+                    <div class="flow-step-desc">Spring Boot</div>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-step python">
+                    <div class="flow-step-title">Python 算法层</div>
+                    <div class="flow-step-desc">CNN-GRU 模型</div>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-step result">
+                    <div class="flow-step-title">返回结果</div>
+                    <div class="flow-step-desc">异常检测</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 配置
+        const J2EE_SERVER = 'http://127.0.0.1:8080';
+        
+        // 状态
+        let isSimulating = false;
+        let simulationTimer = null;
+        let currentSignalType = 'normal';
+        let interval = 1.0;
+        let currentFhr = [];
+        let currentUc = [];
+        let stats = { total: 0, normal: 0, suspicious: 0, high: 0 };
+        
+        // 初始化
+        window.onload = function() {
+            checkStatus();
+            setInterval(checkStatus, 5000);
+            initChart();
+        };
+        
+        // 检查服务状态
+        async function checkStatus() {
+            try {
+                const response = await fetch(`${J2EE_SERVER}/api/fetal/status`);
+                const result = await response.json();
+                
+                if (result.code === 0) {
+                    document.getElementById('j2eeStatus').classList.add('active');
+                    document.getElementById('pythonStatus').classList.classList
+                        .toggle('active', result.data.pythonConnected);
+                }
+            } catch (e) {
+                document.getElementById('j2eeStatus').classList.remove('active');
+                document.getElementById('pythonStatus').classList.remove('active');
+            }
+        }
+        
+        // 初始化图表
+        function initChart() {
+            const canvas = document.getElementById('signalCanvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            
+            // 生成初始数据
+            generateSignalData();
+            drawChart();
+        }
+        
+        // 生成信号数据
+        function generateSignalData() {
+            const configs = {
+                normal: { base: 140, var: 10 },
+                suspicious: { base: 125, var: 15 },
+                abnormal: { base: 100, var: 5 }
+            };
+            
+            const config = configs[currentSignalType];
+            currentFhr = [];
+            currentUc = [];
+            
+            for (let i = 0; i < 256; i++) {
+                const t = i / 256;
+                const fhrNoise = (Math.random() - 0.5) * 5;
+                const fhrWave = Math.sin(t * Math.PI * 4) * config.var;
+                currentFhr.push(config.base + fhrNoise + fhrWave);
+                
+                const ucNoise = (Math.random() - 0.5) * 10;
+                const ucBase = 20 + Math.sin(t * Math.PI * 2) * 15;
+                currentUc.push(Math.max(0, ucBase + ucNoise));
+            }
+            
+            drawChart();
+        }
+        
+        // 绘制图表
+        function drawChart() {
+            const canvas = document.getElementById('signalCanvas');
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            
+            ctx.clearRect(0, 0, width, height);
+            
+            // 绘制FHR
+            ctx.strokeStyle = '#667eea';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            
+            const fhrMin = 50, fhrMax = 200;
+            for (let i = 0; i < currentFhr.length; i++) {
+                const x = (i / currentFhr.length) * width;
+                const y = height - ((currentFhr[i] - fhrMin) / (fhrMax - fhrMin)) * height * 0.8 - height * 0.1;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            
+            // 绘制UC
+            ctx.strokeStyle = '#f56565';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            
+            const ucMax = 100;
+            for (let i = 0; i < currentUc.length; i++) {
+                const x = (i / currentUc.length) * width;
+                const y = height - (currentUc[i] / ucMax) * height * 0.3 - 10;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            
+            // 图例
+            ctx.fillStyle = '#667eea';
+            ctx.fillRect(10, 10, 20, 3);
+            ctx.fillStyle = '#2d3748';
+            ctx.font = '12px Arial';
+            ctx.fillText('FHR (bpm)', 35, 15);
+            
+            ctx.fillStyle = '#f56565';
+            ctx.fillRect(100, 10, 20, 3);
+            ctx.fillStyle = '#2d3748';
+            ctx.fillText('UC', 125, 15);
+        }
+        
+        // 设置信号类型
+        function setSignalType(type) {
+            currentSignalType = type;
+            generateSignalData();
+            addLog(`信号类型切换为: ${type}`, 'info');
+        }
+        
+        // 更新间隔
+        function updateInterval(value) {
+            interval = parseFloat(value);
+            document.getElementById('intervalDisplay').textContent = value;
+        }
+        
+        // 开始模拟
+        function startSimulation() {
+            if (isSimulating) return;
+            
+            isSimulating = true;
+            generateSignalData();
+            simulationLoop();
+            addLog('模拟开始', 'info');
+        }
+        
+        // 停止模拟
+        function stopSimulation() {
+            isSimulating = false;
+            if (simulationTimer) {
+                clearTimeout(simulationTimer);
+                simulationTimer = null;
+            }
+            addLog('模拟停止', 'warn');
+        }
+        
+        // 模拟循环
+        function simulationLoop() {
+            if (!isSimulating) return;
+            
+            sendDetection();
+            
+            if (isSimulating) {
+                simulationTimer = setTimeout(simulationLoop, interval * 1000);
+            }
+        }
+        
+        // 发送单次检测
+        async function sendSingleDetection() {
+            generateSignalData();
+            await sendDetection();
+        }
+        
+        // 发送检测请求
+        async function sendDetection() {
+            // 归一化数据
+            const fhrNorm = currentFhr.map(v => (v - 50) / 150);
+            const ucNorm = currentUc.map(v => v / 100);
+            
+            const request = {
+                deviceId: 'WEB-SIM-001',
+                timestamp: Date.now(),
+                sequence: stats.total + 1,
+                signalType: currentSignalType,
+                fhr: fhrNorm,
+                uc: ucNorm,
+                fhrRaw: currentFhr,
+                ucRaw: currentUc
+            };
+            
+            try {
+                const response = await fetch(`${J2EE_SERVER}/api/fetal/heartbeat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(request)
+                });
+                
+                const result = await response.json();
+                
+                if (result.code === 0) {
+                    displayResult(result.data);
+                    updateStats(result.data);
+                    addLog(`检测完成: ${result.data.riskLevel} (${(result.data.probability * 100).toFixed(1)}%)`, 'info');
+                } else {
+                    addLog('检测失败: ' + result.message, 'error');
+                }
+            } catch (e) {
+                addLog('连接失败: ' + e.message, 'error');
+            }
+        }
+        
+        // 显示结果
+        function displayResult(data) {
+            const riskLevel = document.getElementById('riskLevel');
+            const riskTexts = {
+                normal: '正常',
+                suspicious: '可疑',
+                high: '异常'
+            };
+            const riskClasses = {
+                normal: 'risk-normal',
+                suspicious: 'risk-suspicious',
+                high: 'risk-high'
+            };
+            
+            riskLevel.textContent = riskTexts[data.riskLevel] || '未知';
+            riskLevel.className = 'risk-level ' + (riskClasses[data.riskLevel] || '');
+            
+            document.getElementById('probabilityDisplay').textContent = 
+                (data.probability * 100).toFixed(1) + '%';
+            document.getElementById('inferenceTimeDisplay').textContent = 
+                data.inferenceTimeMs ? data.inferenceTimeMs.toFixed(1) : '-';
+            
+            if (data.features) {
+                document.getElementById('baselineDisplay').textContent = 
+                    data.features.baseline ? data.features.baseline.toFixed(3) : '-';
+                document.getElementById('shortVarDisplay').textContent = 
+                    data.features.shortVariability ? data.features.shortVariability.toFixed(4) : '-';
+                document.getElementById('accelDisplay').textContent = 
+                    data.features.accelerationRatio ? data.features.accelerationRatio.toFixed(3) : '-';
+                document.getElementById('decelDisplay').textContent = 
+                    data.features.decelerationRatio ? data.features.decelerationRatio.toFixed(3) : '-';
+            }
+        }
+        
+        // 更新统计
+        function updateStats(data) {
+            stats.total++;
+            
+            switch(data.riskLevel) {
+                case 'normal': stats.normal++; break;
+                case 'suspicious': stats.suspicious++; break;
+                case 'high': stats.high++; break;
+            }
+            
+            document.getElementById('detectCount').textContent = stats.total;
+            document.getElementById('statTotal').textContent = stats.total;
+            document.getElementById('statNormal').textContent = stats.normal;
+            document.getElementById('statSuspicious').textContent = stats.suspicious;
+            document.getElementById('statHigh').textContent = stats.high;
+        }
+        
+        // 添加日志
+        function addLog(message, level = 'info') {
+            const logDisplay = document.getElementById('logDisplay');
+            const time = new Date().toLocaleTimeString();
+            
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-${level}">${message}</span>`;
+            
+            logDisplay.appendChild(entry);
+            logDisplay.scrollTop = logDisplay.scrollHeight;
+            
+            // 保持最多100条
+            while (logDisplay.children.length > 100) {
+                logDisplay.removeChild(logDisplay.firstChild);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: fetal-heart-monitor
+
+# Python算法服务配置
+python:
+  service:
+    host: 127.0.0.1
+    port: 5000
+    base-url: http://${python.service.host}:${python.service.port}
+
+# 日志配置
+logging:
+  level:
+    com.fetal.monitor: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  charset:
+    console: UTF-8
+  file:
+    charset: UTF-8

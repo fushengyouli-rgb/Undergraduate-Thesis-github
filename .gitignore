@@ -1,0 +1,19 @@
+# 数据集
+ctu-chb-intrapartum-cardiotocography-database-1.0.0/
+data/
+
+# 模型大文件
+models/
+*.h5
+*.pth
+*.npz
+
+# 缓存、编译文件
+__pycache__/
+*.pyc
+target/
+.DS_Storedata/ 
+models/ 
+*.npz 
+*.h5 
+__pycache__/ 
